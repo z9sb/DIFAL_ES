@@ -1,5 +1,5 @@
 import sqlite3
-from os import path, getlogin
+from os import path
 
 # Conectar-se ao banco de dados (ou criar um novo se não existir)
 conn = sqlite3.connect('dados.db')
@@ -73,8 +73,11 @@ def cadastrar_nota(
         return chave_id[0]
     else:
         cursor.execute(
-            "INSERT INTO NotasFiscais (EmpresaID, Chave, DataEmissao, NomeFornecedor, ValorTotal, DataOperacao, Usuario) VALUES(?, ?, ?, ?, ?, ?, ?)", (
-            EmpresaID, Chave, DataEmissao, NomeForncedor, ValorTotal, DataOperacao, Usuario))
+            "INSERT INTO NotasFiscais "
+            "(EmpresaID, Chave, DataEmissao, NomeFornecedor, ValorTotal, DataOperacao,"
+            "Usuario) VALUES(?, ?, ?, ?, ?, ?, ?)", 
+            (EmpresaID, Chave, DataEmissao, NomeForncedor,
+             ValorTotal, DataOperacao, Usuario))
         return cursor.lastrowid
 
 
@@ -91,7 +94,10 @@ def cadastrar_itens(NotaFiscalID, NomeProduto, NCM, CEST, CFOP, UCOM, QCOM, VUNC
     
     else:
         cursor.execute(
-            "INSERT INTO Itens (NotaFiscalID, NomeProduto, NCM, CEST, CFOP, UCOM, QCOM, VUNCOM, VPROD, ICMSORIG, ICMSCST, AliICMS, ValorICMS, ValorIPI, ValorFrete, ValorOutras, ValorDesconto, ValorImposto) VALUES( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO Itens (NotaFiscalID, NomeProduto, NCM, CEST, CFOP, UCOM, QCOM,"
+            "VUNCOM, VPROD, ICMSORIG, ICMSCST, AliICMS, ValorICMS, ValorIPI,ValorFrete,"
+            "ValorOutras, ValorDesconto, ValorImposto) "
+            "VALUES( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (NotaFiscalID, NomeProduto, NCM, CEST, CFOP, UCOM, QCOM, VUNCOM, VPROD,
             ICMSORIG, ICMSCST, AliICMS, ValorICMS, ValorIPI, ValorFrete, ValorOutras,
             ValorDesconto, ValorImposto)
@@ -101,7 +107,10 @@ def cadastrar_itens(NotaFiscalID, NomeProduto, NCM, CEST, CFOP, UCOM, QCOM, VUNC
 
 
 def seek_id_nf_item(NotaFiscalID):
-    cursor.execute("SELECT NomeProduto, NCM, CEST, CFOP, UCOM, QCOM, VUNCOM, VPROD, ICMSORIG, ICMSCST, AliICMS, ValorICMS, ValorIPI, ValorFrete, ValorOutras, ValorDesconto, ValorImposto FROM Itens WHERE NotaFiscalID = ?", (NotaFiscalID,))
+    cursor.execute(
+        "SELECT NomeProduto, NCM, CEST, CFOP, UCOM, QCOM, VUNCOM, VPROD, ICMSORIG,"
+        "ICMSCST, AliICMS, ValorICMS, ValorIPI, ValorFrete, ValorOutras, ValorDesconto,"
+        "ValorImposto FROM Itens WHERE NotaFiscalID = ?", (NotaFiscalID,))
     item_id = cursor.fetchall()
     
     if item_id:
@@ -112,3 +121,5 @@ def seek_NotaFiscalID(Chave: str):
     cursor.execute("SELECT ID FROM NotasFiscais WHERE Chave = ?", (Chave,))
     chave_id = cursor.fetchone()
     return chave_id[0]
+
+
