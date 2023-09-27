@@ -19,6 +19,7 @@ try:
                             EmpresaID INTEGER,
                             Chave TEXT,
                             DataEmissao DATE,
+                            NomeFornecedor TEXT,
                             ValorTotal DECIMAL,
                             DataOperacao DATE,
                             Usuario TEXT,
@@ -45,8 +46,6 @@ try:
                             ValorFrete DECIMAL,
                             ValorOutras DECIMAL,
                             ValorDesconto DECIMAL,
-                            ValorBC DECIMAL,
-                            ValorICMSDes DECIMAL,
                             ValorImposto DECIMAL,
                             FOREIGN KEY (NotaFiscalID) REFERENCES NotasFiscais(ID)
                         )''')
@@ -64,7 +63,9 @@ def cadastrar_empresas(cnpj, nome):
         cursor.execute("INSERT INTO Empresas (CNPJ, Nome) VALUES(?, ?)", (cnpj, nome))
         return cursor.lastrowid
 
-def cadastrar_nota(EmpresaID, Chave, DataEmissao, ValorTotal, DataOperacao, Usuario):
+
+def cadastrar_nota(
+    EmpresaID, Chave, DataEmissao, NomeForncedor, ValorTotal, DataOperacao, Usuario):
     cursor.execute("SELECT ID FROM NotasFiscais WHERE Chave = ?", (Chave,))
     chave_id = cursor.fetchone()
     
@@ -72,15 +73,17 @@ def cadastrar_nota(EmpresaID, Chave, DataEmissao, ValorTotal, DataOperacao, Usua
         return chave_id[0]
     else:
         cursor.execute(
-            "INSERT INTO NotasFiscais (EmpresaID, Chave, DataEmissao, ValorTotal, DataOperacao, Usuario) VALUES(?, ?, ?, ?, ?, ?)", (
-            EmpresaID, Chave, DataEmissao, ValorTotal, DataOperacao, Usuario))
+            "INSERT INTO NotasFiscais (EmpresaID, Chave, DataEmissao, NomeFornecedor, ValorTotal, DataOperacao, Usuario) VALUES(?, ?, ?, ?, ?, ?, ?)", (
+            EmpresaID, Chave, DataEmissao, NomeForncedor, ValorTotal, DataOperacao, Usuario))
         return cursor.lastrowid
+
 
 def cadastrar_itens(NotaFiscalID, NomeProduto, NCM, CEST, CFOP, UCOM, QCOM, VUNCOM,
                     VPROD, ICMSORIG, ICMSCST, AliICMS, ValorICMS,ValorIPI, ValorFrete,
-                    ValorOutras, ValorDesconto, ValorBC, ValorICMSDes, ValorImposto):
+                    ValorOutras, ValorDesconto, ValorImposto):
     
-    cursor.execute("SELECT ID FROM Itens WHERE NomeProduto = ?", (NomeProduto,))
+    cursor.execute("SELECT ID FROM Itens WHERE NomeProduto = ? AND NotaFiscalID = ?", 
+                   (NomeProduto, NotaFiscalID))
     item_id = cursor.fetchone()
     
     if item_id:
@@ -88,10 +91,24 @@ def cadastrar_itens(NotaFiscalID, NomeProduto, NCM, CEST, CFOP, UCOM, QCOM, VUNC
     
     else:
         cursor.execute(
-            "INSERT INTO Itens (NotaFiscalID, NomeProduto, NCM, CEST, CFOP, UCOM, QCOM, VUNCOM, VPROD, ICMSORIG, ICMSCST, AliICMS, ValorICMS, ValorIPI, ValorFrete, ValorOutras, ValorDesconto, ValorBC, ValorICMSDes, ValorImposto) VALUES( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO Itens (NotaFiscalID, NomeProduto, NCM, CEST, CFOP, UCOM, QCOM, VUNCOM, VPROD, ICMSORIG, ICMSCST, AliICMS, ValorICMS, ValorIPI, ValorFrete, ValorOutras, ValorDesconto, ValorImposto) VALUES( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (NotaFiscalID, NomeProduto, NCM, CEST, CFOP, UCOM, QCOM, VUNCOM, VPROD,
             ICMSORIG, ICMSCST, AliICMS, ValorICMS, ValorIPI, ValorFrete, ValorOutras,
-            ValorDesconto, ValorBC, ValorICMSDes, ValorImposto)
+            ValorDesconto, ValorImposto)
         )
     
     return conn.commit()
+
+
+def seek_id_nf_item(NotaFiscalID):
+    cursor.execute("SELECT NomeProduto, NCM, CEST, CFOP, UCOM, QCOM, VUNCOM, VPROD, ICMSORIG, ICMSCST, AliICMS, ValorICMS, ValorIPI, ValorFrete, ValorOutras, ValorDesconto, ValorImposto FROM Itens WHERE NotaFiscalID = ?", (NotaFiscalID,))
+    item_id = cursor.fetchall()
+    
+    if item_id:
+        return item_id
+    
+    
+def seek_NotaFiscalID(Chave: str):
+    cursor.execute("SELECT ID FROM NotasFiscais WHERE Chave = ?", (Chave,))
+    chave_id = cursor.fetchone()
+    return chave_id[0]

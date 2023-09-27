@@ -2,7 +2,7 @@ from os import path, remove, listdir
 from pathlib import Path
 from easygui import diropenbox #type: ignore 
 from funcoes import calculo_diferencial_icms, cadastrar_produto
-from xml_file import NF
+from xml_file import NFe
 from datetime import datetime
 
 if path.exists('rootdir.txt'):
@@ -21,7 +21,7 @@ with open('rootdir.txt') as dir_name:
     for root_file in file_xml:
         root = (f'{root_dir}/{root_file}')
         
-        xml = NF(root)
+        xml = NFe(root)
         cests = xml.cest()
         alis = xml.ali_icms()
         ncms = xml.ncm()
@@ -57,7 +57,7 @@ with open('rootdir.txt') as dir_name:
             resultado = cadastrar_produto(
                 cests, alis, ncms, name_prods, v_produtos, v_ipis, v_fretes, v_descs, 
                 v_outros, cnpj_des, nome_cli, chave_nf, data_e_hora, Valor_total, origs,
-                csts, ucoms, qcoms, vuncoms, cfops, v_icms)
+                csts, ucoms, qcoms, vuncoms, cfops, v_icms, name_for)
             
             print(resultado)
             
