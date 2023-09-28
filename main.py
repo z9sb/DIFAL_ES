@@ -1,7 +1,7 @@
 from os import path, remove, listdir
 from pathlib import Path
 from easygui import diropenbox #type: ignore 
-from funcoes import calculo_diferencial_icms, cadastrar_produto
+from funcoes import cadastrar_produto
 from xml_file import NFe
 from datetime import datetime
 

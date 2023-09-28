@@ -1,6 +1,8 @@
 import bd
 from os import getlogin
-from datetime import datetime
+from datetime import datetime, date, timedelta
+from calendar import monthrange
+
 
 def cadastrar_produto(
     cests, alis, ncms, name_prods, v_produtos, v_ipis, v_fretes, v_descs, v_outros,
@@ -44,3 +46,26 @@ def calculo_diferencial_icms(
 
     return round(v_impoto, 2)
 
+def date_last() -> str:
+    """ Return the last day of the month, in str format.
+        Always being the competence of the previous month.
+        Example Month 06:
+        Return 30/06/2023
+    """
+    data_atual = date.today()
+    month = (data_atual.month - 1)
+    last_date = data_atual.replace(day=1, month=month) + timedelta(
+        monthrange(data_atual.year, month)[1] - 1)
+    return f'{last_date.day:02}/{last_date.month:02}/{last_date.year}'
+
+
+def date_start() -> str:
+    """Return the start day of the month, in str format.
+        Always being the competence of the previous month.
+        Example Month 06:
+        Return 01/06/2023
+    """
+    data_atual = date.today()
+    month = (data_atual.month - 1)
+    start_date = data_atual.replace(day=1, month=month)
+    return f'{start_date.day:02}/{start_date.month:02}/{start_date.year}'

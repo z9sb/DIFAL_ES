@@ -1,12 +1,11 @@
 import sqlite3
 from sys import argv
 
-import pandas as pd
 from PyQt6 import uic
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QDate
 from PyQt6.QtWidgets import QApplication, QMainWindow, QTreeWidgetItem
 
-from funcoes import calculo_diferencial_icms
+from funcoes import calculo_diferencial_icms, date_start, date_last
 from emitir_dua import Dua
 import bd
 from datetime import datetime
@@ -31,13 +30,22 @@ class Ui(QMainWindow):
         self.btn_itens_dt.clicked.connect(self.mark_off_all)
         self.btn_itens_zt.clicked.connect(self.zerar_imposto)
         self.btn_itens_cps.clicked.connect(self.check_selection_pre)
-
+        self.lineedit_notas.textChanged.connect(self.search_nota)
+        self.dateEdit_inicial.setDate(self.set_date(date_start()))
+        self.dateEdit_final.setDate(self.set_date(date_last()))
+        self.dateEdit_inicial.dateChanged.connect(self.search_nota)
+        self.dateEdit_final.dateChanged.connect(self.search_nota)
+        
         self.itens.setHeaderLabels(
             ['PRODUTO', 'NCM', 'CEST', 'CFOP', 'UNIDADE', 'QUANTIDADE',
              'VALOR UNI. PRODUTO', 'VALOR TOTAL PRODUTO', 'ORIG', 'CST',
              'ALIQUOTA ICMS', 'VALOR ICMS', 'VALOR IPI', 'VALOR FRETE',
              'VALOR OUTRAS', 'VALOR DESCONTO', 'VALOR IMPOSTO'])
 
+    def set_date(self, metodo):
+        dia, mes, ano = map(int, str(metodo).split('/'))
+        return QDate(ano, mes, dia)
+        
     def table_home(self):
         self.tree = QTreeWidgetItem(self.empresas)
 
@@ -69,13 +77,39 @@ class Ui(QMainWindow):
     def btn_table_notas(self):
         return self.stackedWidget.setCurrentWidget(self.table_notas)
 
-    def set_notas(self, empresa_id):
-        result = pd.read_sql_query(
-            "SELECT Chave, DataEmissao, NomeFornecedor "
-            "FROM NotasFiscais WHERE EmpresaID = ?",
-            self.connec, params=(empresa_id,)
-        )
-        result_list = result.values.tolist()
+    
+    def search_nota(self):
+        pesquisa = self.lineedit_notas.text()
+        
+        #Data sem formatação
+        dt_in_nf = self.dateEdit_inicial.date()
+        dt_fn_nf = self.dateEdit_final.date()
+        
+        #Formatando data
+        data_inicial = f'{dt_in_nf.year()}-{dt_in_nf.month():02}-{dt_in_nf.day():02}'
+        data_final = f'{dt_fn_nf.year()}-{dt_fn_nf.month():02}-{dt_fn_nf.day():02}'
+        
+        parametros_busca = [bd.cadastrar_empresas(self.cnpj, self.nome)]
+        search = "SELECT Chave, DataEmissao, NomeFornecedor From NotasFiscais WHERE EmpresaID = ? "
+        
+        if pesquisa:
+            search += "AND (Chave LIKE ? OR NomeFornecedor LIKE ?)"
+            parametros_busca.extend(['%' + pesquisa + '%', '%' + pesquisa + '%'])
+            
+        if data_inicial:
+            search += " AND DATETIME(DataEmissao, '-03:00') >= ?" 
+            parametros_busca.append(data_inicial)
+        
+        if data_final:
+            search += " AND DATETIME(DataEmissao, '-03:00') <= ?" 
+            parametros_busca.append(data_final)
+
+        result = self.conn.execute(search, parametros_busca).fetchall()
+
+        return self.set_notas(result)
+        
+
+    def set_notas(self, result_list):
         self.notas.clear()
 
         for index, i in enumerate(result_list):
@@ -134,7 +168,7 @@ class Ui(QMainWindow):
 
         self.itens.expandAll()
         self.somar_imposto()
-        
+
     def busca_empresa(self):
         try:
             for item in range(self.empresas.topLevelItemCount()):
@@ -146,7 +180,7 @@ class Ui(QMainWindow):
                 if check == 2:
                     self.cnpj_dest = self.cnpj
                     self.stackedWidget.setCurrentWidget(self.table_notas)
-                    self.set_notas(bd.cadastrar_empresas(self.cnpj, self.nome))
+                    self.search_nota()
 
         except OSError:
             pass
@@ -288,14 +322,14 @@ class Ui(QMainWindow):
 
             except ValueError:
                 pass
-            
-        text_label = f'R$ {self.imposto}' 
+
+        text_label = f'R$ {round(self.imposto, 2)}'
         self.label_itens_imposto.setText(text_label)
-        
-        
+
     def emitir_dua(self):
         Dua().emitir_dua_sefaz(
-            self.imposto, self.cnpj_dest, str(int(self.chave_nota[-19: -10])),
+            round(self.imposto, 2), self.cnpj_dest, str(
+                int(self.chave_nota[-19: -10])),
             self.nome_for, datetime.now())
 
 
@@ -305,3 +339,4 @@ if __name__ == '__main__':
     window.table_home()
     window.show()
     app.exec()
+

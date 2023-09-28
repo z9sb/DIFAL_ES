@@ -52,18 +52,21 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1025</width>
+             <width>1009</width>
              <height>725</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_3">
             <item row="0" column="3">
-             <widget class="QDateEdit" name="dateEdit">
+             <widget class="QDateEdit" name="dateEdit_inicial">
               <property name="minimumSize">
                <size>
                 <width>90</width>
                 <height>0</height>
                </size>
+              </property>
+              <property name="displayFormat">
+               <string>dd/MM/yyyy</string>
               </property>
               <property name="calendarPopup">
                <bool>true</bool>
@@ -71,7 +74,7 @@
              </widget>
             </item>
             <item row="0" column="5">
-             <widget class="QDateEdit" name="dateEdit_2">
+             <widget class="QDateEdit" name="dateEdit_final">
               <property name="minimumSize">
                <size>
                 <width>90</width>
@@ -80,16 +83,6 @@
               </property>
               <property name="calendarPopup">
                <bool>true</bool>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="1">
-             <widget class="QLineEdit" name="lineEdit">
-              <property name="alignment">
-               <set>Qt::AlignCenter</set>
-              </property>
-              <property name="placeholderText">
-               <string>Chave ou Nome do fornecedor</string>
               </property>
              </widget>
             </item>
@@ -125,22 +118,6 @@
               </property>
              </spacer>
             </item>
-            <item row="0" column="2">
-             <spacer name="horizontalSpacer_2">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
-              </property>
-              <property name="sizeType">
-               <enum>QSizePolicy::Fixed</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>30</width>
-                <height>10</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
             <item row="1" column="0" rowspan="5" colspan="7">
              <widget class="QTreeWidget" name="notas">
               <column>
@@ -166,6 +143,32 @@
                <string>A</string>
               </property>
              </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QLineEdit" name="lineedit_notas">
+              <property name="alignment">
+               <set>Qt::AlignCenter</set>
+              </property>
+              <property name="placeholderText">
+               <string>Chave ou Nome do fornecedor</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="2">
+             <spacer name="horizontalSpacer_2">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeType">
+               <enum>QSizePolicy::Fixed</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>30</width>
+                <height>10</height>
+               </size>
+              </property>
+             </spacer>
             </item>
            </layout>
           </widget>
@@ -250,14 +253,14 @@
         <item row="1" column="0">
          <widget class="QLabel" name="label_itens_text_imposto">
           <property name="text">
-           <string>Valor total do imposto na nf:</string>
+           <string>Valor total do imposto:</string>
           </property>
          </widget>
         </item>
         <item row="1" column="1" colspan="3">
          <widget class="QLabel" name="label_itens_imposto">
           <property name="text">
-           <string>TextLabel</string>
+           <string/>
           </property>
           <property name="alignment">
            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
