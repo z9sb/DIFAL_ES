@@ -36,7 +36,7 @@ def calculo_diferencial_icms(
     base_de_calculo_ipi = ((
         float(valor_total) + float(valor_ipi) +
         float(valor_frete) + float(valor_outras) - float(valor_desconto)
-        ) * (1 - (float(ali)/100))) * 0.83 * 0.17
+        ) * (1 - (float(ali)/100))) / 0.83 * 0.17
     
     if float(valor_icms) == 0.0:
         v_impoto = base_de_calculo_ipi - (float(valor_total)+ float(valor_frete) 

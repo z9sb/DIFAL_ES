@@ -3,7 +3,7 @@ from sys import argv
 
 from PyQt6 import uic
 from PyQt6.QtCore import Qt, QDate
-from PyQt6.QtWidgets import QApplication, QMainWindow, QTreeWidgetItem
+from PyQt6.QtWidgets import QApplication, QMainWindow, QTreeWidgetItem, QMessageBox
 
 from funcoes import calculo_diferencial_icms, date_start, date_last
 from emitir_dua import Dua
@@ -90,7 +90,8 @@ class Ui(QMainWindow):
         data_final = f'{dt_fn_nf.year()}-{dt_fn_nf.month():02}-{dt_fn_nf.day():02}'
         
         parametros_busca = [bd.cadastrar_empresas(self.cnpj, self.nome)]
-        search = "SELECT Chave, DataEmissao, NomeFornecedor From NotasFiscais WHERE EmpresaID = ? "
+        search = ("SELECT Chave, DataEmissao, NomeFornecedor "
+                  "From NotasFiscais WHERE EmpresaID = ? ")
         
         if pesquisa:
             search += "AND (Chave LIKE ? OR NomeFornecedor LIKE ?)"
@@ -125,7 +126,7 @@ class Ui(QMainWindow):
                 self.tree.setCheckState(0, Qt.CheckState.Unchecked)
 
         self.notas.expandAll()
-
+        return self.show_dialog()
     def table_center(self, NotaFiscalID):
         self.tree = QTreeWidgetItem(self.itens)
         self.itens.clear()
@@ -143,7 +144,8 @@ class Ui(QMainWindow):
 
         for nf in nf_id:
             nota_id = self.conn.execute(
-                "SELECT NomeProduto FROM Itens WHERE ValorImposto > 0 AND NotaFiscalID = ?",
+                "SELECT NomeProduto " 
+                "FROM Itens WHERE ValorImposto > 0 AND NotaFiscalID = ?",
                 (nf[0],)).fetchall()
 
             if nota_id:
@@ -326,6 +328,18 @@ class Ui(QMainWindow):
         text_label = f'R$ {round(self.imposto, 2)}'
         self.label_itens_imposto.setText(text_label)
 
+    def show_dialog(self):
+        self.msg_box = QMessageBox()
+        self.msg_box.setWindowTitle(
+            'Notificação'
+            )
+        self.msg_box.setText(
+            'Foram encontradas notas em aberto, deseja calcular?'
+            )
+        self.msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        self.msg_box.exec()
+        
+        
     def emitir_dua(self):
         Dua().emitir_dua_sefaz(
             round(self.imposto, 2), self.cnpj_dest, str(
