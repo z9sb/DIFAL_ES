@@ -123,3 +123,10 @@ def seek_NotaFiscalID(Chave: str):
     return chave_id[0]
 
 
+def notas_empresa(cnpj, nome):
+    cursor.execute("SELECT ID FROM NotasFiscais WHERE EmpresaID = ?",
+                   (cadastrar_empresas(cnpj, nome),))
+    item_id = cursor.fetchall()
+    
+    if item_id:
+        return item_id

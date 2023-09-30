@@ -215,31 +215,24 @@
           </column>
          </widget>
         </item>
-        <item row="4" column="2" colspan="2">
-         <widget class="QPushButton" name="btn_itens_dua">
-          <property name="text">
-           <string>Emitir Dua</string>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="3">
-         <widget class="QPushButton" name="btn_itens_cps">
-          <property name="text">
-           <string>Calcular Pré-selecionados</string>
-          </property>
-         </widget>
-        </item>
-        <item row="4" column="0" colspan="2">
-         <widget class="QPushButton" name="btn_itens_salvar">
-          <property name="text">
-           <string>Salvar</string>
-          </property>
-         </widget>
-        </item>
         <item row="3" column="2">
          <widget class="QPushButton" name="btn_itens_zt">
           <property name="text">
            <string>Zerar Imposto</string>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="1">
+         <widget class="QPushButton" name="btn_itens_dt">
+          <property name="text">
+           <string>Desmarcar Todos</string>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="2" colspan="2">
+         <widget class="QPushButton" name="btn_itens_dua">
+          <property name="text">
+           <string>Emitir Dua</string>
           </property>
          </widget>
         </item>
@@ -253,17 +246,17 @@
           </property>
          </widget>
         </item>
-        <item row="3" column="1">
-         <widget class="QPushButton" name="btn_itens_dt">
+        <item row="4" column="0" colspan="2">
+         <widget class="QPushButton" name="btn_itens_salvar">
           <property name="text">
-           <string>Desmarcar Todos</string>
+           <string>Salvar</string>
           </property>
          </widget>
         </item>
-        <item row="2" column="0">
-         <widget class="QLabel" name="label_itens_text_imposto">
+        <item row="3" column="3">
+         <widget class="QPushButton" name="btn_itens_cps">
           <property name="text">
-           <string>Valor total do imposto:</string>
+           <string>Calcular Pré-selecionados</string>
           </property>
          </widget>
         </item>
@@ -277,6 +270,13 @@
           </property>
           <property name="placeholderText">
            <string>Nome do produto</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0">
+         <widget class="QLabel" name="label_itens_text_imposto">
+          <property name="text">
+           <string>Valor total do imposto:</string>
           </property>
          </widget>
         </item>

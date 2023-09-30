@@ -24,6 +24,7 @@ class Ui(QMainWindow):
         self.btn_empresas.clicked.connect(self.btn_table_empresas)
         self.btn_itens.clicked.connect(self.btn_table_itens)
         self.btn_notas.clicked.connect(self.btn_table_notas)
+        self.btn_notas.clicked.connect(self.next_notas)
         self.btn_itens_salvar.clicked.connect(self.calculo_imposto)
         self.btn_itens_dua.clicked.connect(self.emitir_dua)
         self.btn_itens_mt.clicked.connect(self.select_all)
@@ -35,7 +36,7 @@ class Ui(QMainWindow):
         self.dateEdit_final.setDate(self.set_date(date_last()))
         self.dateEdit_inicial.dateChanged.connect(self.search_nota)
         self.dateEdit_final.dateChanged.connect(self.search_nota)
-        
+
         self.itens.setHeaderLabels(
             ['PRODUTO', 'NCM', 'CEST', 'CFOP', 'UNIDADE', 'QUANTIDADE',
              'VALOR UNI. PRODUTO', 'VALOR TOTAL PRODUTO', 'ORIG', 'CST',
@@ -45,7 +46,7 @@ class Ui(QMainWindow):
     def set_date(self, metodo):
         dia, mes, ano = map(int, str(metodo).split('/'))
         return QDate(ano, mes, dia)
-        
+
     def table_home(self):
         self.tree = QTreeWidgetItem(self.empresas)
 
@@ -77,42 +78,52 @@ class Ui(QMainWindow):
     def btn_table_notas(self):
         return self.stackedWidget.setCurrentWidget(self.table_notas)
 
-    
     def search_nota(self):
         pesquisa = self.lineedit_notas.text()
-        
-        #Data sem formatação
+
+        # Data sem formatação
         dt_in_nf = self.dateEdit_inicial.date()
         dt_fn_nf = self.dateEdit_final.date()
-        
-        #Formatando data
+
+        # Formatando data
         data_inicial = f'{dt_in_nf.year()}-{dt_in_nf.month():02}-{dt_in_nf.day():02}'
         data_final = f'{dt_fn_nf.year()}-{dt_fn_nf.month():02}-{dt_fn_nf.day():02}'
-        
+
         parametros_busca = [bd.cadastrar_empresas(self.cnpj, self.nome)]
         search = ("SELECT Chave, DataEmissao, NomeFornecedor "
                   "From NotasFiscais WHERE EmpresaID = ? ")
-        
+
         if pesquisa:
             search += "AND (Chave LIKE ? OR NomeFornecedor LIKE ?)"
-            parametros_busca.extend(['%' + pesquisa + '%', '%' + pesquisa + '%'])
-            
+            parametros_busca.extend(
+                ['%' + pesquisa + '%', '%' + pesquisa + '%'])
+
         if data_inicial:
-            search += " AND DATETIME(DataEmissao, '-03:00') >= ?" 
+            search += " AND DATETIME(DataEmissao, '-03:00') >= ?"
             parametros_busca.append(data_inicial)
-        
+
         if data_final:
-            search += " AND DATETIME(DataEmissao, '-03:00') <= ?" 
+            search += " AND DATETIME(DataEmissao, '-03:00') <= ?"
             parametros_busca.append(data_final)
 
         result = self.conn.execute(search, parametros_busca).fetchall()
-
         return self.set_notas(result)
-        
 
     def set_notas(self, result_list):
+        """Define as notas no QStakedWidget.notas e faz um loop em busca dos produtos 
+        já calculados. E necessário passar o result_list(lista), que por sua vez será
+        os dados apresentados."""
+        #Limpa a tabela para inserir novas notas
         self.notas.clear()
 
+        #Lista de notas que é utilizada no loop de seleção de produtos pré-calculados
+        self.list_notas_cal = []
+        
+        #Lista de itens que é utilizada no loop de seleção de produtos pré-calculados
+        self.list_itens_cal = []
+        
+        
+        
         for index, i in enumerate(result_list):
             if i[0] == self.elemento:
                 QTreeWidgetItem(self.campo, index)
@@ -125,32 +136,49 @@ class Ui(QMainWindow):
 
                 self.tree.setCheckState(0, Qt.CheckState.Unchecked)
 
+            nf_id = bd.seek_NotaFiscalID(i[0])
+            
+            #Checka se há itens da nota que foram calculados anteriormente
+            self.check = self.conn.execute(
+                "SELECT NomeProduto "
+                "FROM Itens "
+                "WHERE NotaFiscalID IN {}"
+                "GROUP BY NomeProduto HAVING COUNT(NomeProduto) > 1 "
+                "AND SUM(CASE WHEN ValorImposto > 0 THEN 1 ELSE 0 END) > 0 "
+                "AND NomeProduto IN (SELECT NomeProduto "
+                "FROM Itens WHERE NotaFiscalID = ? "
+                "AND ValorImposto = 0)".format(tuple(self.notas_empr_pro)),
+                (str(nf_id),)).fetchall()
+
+            if self.check != []:
+                self.list_notas_cal.append(i[0])
+                self.list_itens_cal.append(self.check[0])
+
+        if self.list_notas_cal != []:
+            return self.show_dialog()
+
+    def notas_abertas(self):
+        for item in range(self.notas.topLevelItemCount()):
+            try:
+                tree = self.notas.topLevelItem(item)
+                chave = tree.text(0)
+
+                if chave in self.list_notas_cal:
+                    self.list_notas_cal.remove(chave)
+                    tree.setCheckState(0, Qt.CheckState.Checked)
+                    self.busca_notas()
+                    yield tree.setCheckState(0, Qt.CheckState.Unchecked)
+
+            except (StopIteration, AttributeError):
+                pass
+
         self.notas.expandAll()
-        return self.show_dialog()
+
     def table_center(self, NotaFiscalID):
         self.tree = QTreeWidgetItem(self.itens)
         self.itens.clear()
 
         result_list = bd.seek_id_nf_item(NotaFiscalID)
-
-        empresa_id = self.conn.execute(
-            "SELECT ID FROM Empresas WHERE CNPJ = ?", (self.cnpj_dest,)).fetchone()
-
-        nf_id = self.conn.execute(
-            "SELECT ID FROM NotasFiscais WHERE EmpresaID = ?",
-            (empresa_id[0],)).fetchall()
-
-        all_items = []
-
-        for nf in nf_id:
-            nota_id = self.conn.execute(
-                "SELECT NomeProduto " 
-                "FROM Itens WHERE ValorImposto > 0 AND NotaFiscalID = ?",
-                (nf[0],)).fetchall()
-
-            if nota_id:
-                for item in nota_id:
-                    all_items.append(item[0])
 
         for index, valor in enumerate(result_list):
             if valor[0] == self.elemento:
@@ -163,10 +191,11 @@ class Ui(QMainWindow):
 
                 self.tree.setCheckState(0, Qt.CheckState.Unchecked)
 
-                for index, item in enumerate(valor):
-                    if index == 0 and item in all_items:
-                        self.tree.setCheckState(
-                            0, Qt.CheckState.PartiallyChecked)
+                if self.list_itens_cal != []:
+                    for index, item in enumerate(valor):
+                        if index == 0 and item in self.list_itens_cal[0]:
+                            self.tree.setCheckState(
+                                0, Qt.CheckState.PartiallyChecked)
 
         self.itens.expandAll()
         self.somar_imposto()
@@ -181,6 +210,8 @@ class Ui(QMainWindow):
 
                 if check == 2:
                     self.cnpj_dest = self.cnpj
+                    self.notas_empr_npro = bd.notas_empresa(self.cnpj_dest, self.nome)
+                    self.notas_empr_pro = [i[0] for i in self.notas_empr_npro]
                     self.stackedWidget.setCurrentWidget(self.table_notas)
                     self.search_nota()
 
@@ -208,8 +239,8 @@ class Ui(QMainWindow):
             pass
 
     def calculo_imposto(self):
-        try:
-            for item in range(self.itens.topLevelItemCount()):
+        for item in range(self.itens.topLevelItemCount()):
+            if item is not None:
                 tree = self.itens.topLevelItem(item)
                 NomeProduto = tree.text(0)
                 valor_total = tree.text(7)
@@ -239,9 +270,6 @@ class Ui(QMainWindow):
 
                         self.conn.execute(sql, (str(valor), item_id[0]))
                         self.connec.commit()
-
-        except OSError:
-            pass
 
         self.table_center(bd.seek_NotaFiscalID(
             self.chave_nota))
@@ -275,33 +303,24 @@ class Ui(QMainWindow):
 
     def select_all(self):
         for item in range(self.itens.topLevelItemCount()):
-            try:
+            if item is not None:
                 tree = self.itens.topLevelItem(item)
                 tree.setCheckState(0, Qt.CheckState.Checked)
 
-            except ValueError:
-                pass
-
     def mark_off_all(self):
         for item in range(self.itens.topLevelItemCount()):
-            try:
+            if item is not None:
                 tree = self.itens.topLevelItem(item)
                 tree.setCheckState(0, Qt.CheckState.Unchecked)
 
-            except ValueError:
-                pass
-
     def check_selection_pre(self):
         for item in range(self.itens.topLevelItemCount()):
-            try:
+            if item is not None:
                 tree = self.itens.topLevelItem(item)
                 check = tree.checkState(0).value
 
                 if check == 1:
                     tree.setCheckState(0, Qt.CheckState.Checked)
-
-            except ValueError:
-                pass
 
         self.calculo_imposto()
 
@@ -332,14 +351,24 @@ class Ui(QMainWindow):
         self.msg_box = QMessageBox()
         self.msg_box.setWindowTitle(
             'Notificação'
-            )
+        )
         self.msg_box.setText(
             'Foram encontradas notas em aberto, deseja calcular?'
-            )
-        self.msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        self.msg_box.exec()
-        
-        
+        )
+        self.msg_box.setStandardButtons(
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+
+        result = self.msg_box.exec()
+
+        if result == QMessageBox.StandardButton.Yes:
+            return self.notas_abertas()
+
+    def next_notas(self):
+        try:
+            return next(self.notas_abertas())
+        except:
+            pass
+
     def emitir_dua(self):
         Dua().emitir_dua_sefaz(
             round(self.imposto, 2), self.cnpj_dest, str(
@@ -353,4 +382,3 @@ if __name__ == '__main__':
     window.table_home()
     window.show()
     app.exec()
-
