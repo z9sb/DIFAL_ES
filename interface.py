@@ -9,13 +9,16 @@ from funcoes import calculo_diferencial_icms, date_start, date_last
 from emitir_dua import Dua
 import bd
 from datetime import datetime
+from cachetools import TTLCache, cached
+import hashlib
 
 
-class Ui(QMainWindow):
+class Ui(QMainWindow):   
     def __init__(self):
         super(Ui, self).__init__()
         uic.loadUi('untitled.ui', self)
         self.init_ui()
+        self.cache = TTLCache(maxsize=1000, ttl=3600)
 
     def init_ui(self):
         self.empresas.itemClicked.connect(self.busca_empresa)
@@ -77,85 +80,83 @@ class Ui(QMainWindow):
 
     def btn_table_notas(self):
         return self.stackedWidget.setCurrentWidget(self.table_notas)
+    
+    def gerar_hash_parametros(self, pesquisa, data_inicial, data_final):
+        # Gere um hash dos parâmetros para ser usado como chave de cache
+        hash_input = f"{pesquisa}-{data_inicial}-{data_final}"
+        return hashlib.md5(hash_input.encode()).hexdigest()    
 
     def search_nota(self):
         pesquisa = self.lineedit_notas.text()
-
-        # Data sem formatação
         dt_in_nf = self.dateEdit_inicial.date()
         dt_fn_nf = self.dateEdit_final.date()
-
-        # Formatando data
         data_inicial = f'{dt_in_nf.year()}-{dt_in_nf.month():02}-{dt_in_nf.day():02}'
         data_final = f'{dt_fn_nf.year()}-{dt_fn_nf.month():02}-{dt_fn_nf.day():02}'
+        parametros_busca = [bd.cadastrar_empresas(self.cnpj_dest, self.nome_dest)]
+        chave_cache = self.gerar_hash_parametros(pesquisa, data_inicial, data_final)
 
-        parametros_busca = [bd.cadastrar_empresas(self.cnpj, self.nome)]
-        search = ("SELECT Chave, DataEmissao, NomeFornecedor "
-                  "From NotasFiscais WHERE EmpresaID = ? ")
+        # Verificar se o resultado já está em cache
+        if chave_cache in self.cache:
+            result = self.cache[chave_cache]
+        else:
+            # Caso não esteja em cache, fazer a consulta ao banco de dados
+            search = ("SELECT Chave, DataEmissao, NomeFornecedor "
+                      "FROM NotasFiscais WHERE EmpresaID = ? ")
 
-        if pesquisa:
-            search += "AND (Chave LIKE ? OR NomeFornecedor LIKE ?)"
-            parametros_busca.extend(
-                ['%' + pesquisa + '%', '%' + pesquisa + '%'])
+            if pesquisa:
+                search += "AND (Chave LIKE ? OR NomeFornecedor LIKE ?)"
+                parametros_busca.extend(['%' + pesquisa + '%', '%' + pesquisa + '%'])
 
-        if data_inicial:
-            search += " AND DATETIME(DataEmissao, '-03:00') >= ?"
-            parametros_busca.append(data_inicial)
+            if data_inicial:
+                search += " AND DATETIME(DataEmissao, '-03:00') >= ?"
+                parametros_busca.append(data_inicial)
 
-        if data_final:
-            search += " AND DATETIME(DataEmissao, '-03:00') <= ?"
-            parametros_busca.append(data_final)
+            if data_final:
+                search += " AND DATETIME(DataEmissao, '-03:00') <= ?"
+                parametros_busca.append(data_final)
 
-        result = self.conn.execute(search, parametros_busca).fetchall()
+            result = self.conn.execute(search, parametros_busca).fetchall()
+
+            # Armazenar o resultado em cache
+            self.cache[chave_cache] = result
+
         return self.set_notas(result)
 
     def set_notas(self, result_list):
-        """Define as notas no QStakedWidget.notas e faz um loop em busca dos produtos 
-        já calculados. E necessário passar o result_list(lista), que por sua vez será
-        os dados apresentados."""
-        #Limpa a tabela para inserir novas notas
         self.notas.clear()
+        notas_calculadas = {}
 
-        #Lista de notas que é utilizada no loop de seleção de produtos pré-calculados
-        self.list_notas_cal = []
-        
-        #Lista de itens que é utilizada no loop de seleção de produtos pré-calculados
-        self.list_itens_cal = []
-        
-        
-        
-        for index, i in enumerate(result_list):
-            if i[0] == self.elemento:
+        for index, nota in enumerate(result_list):
+            nf_id = bd.seek_NotaFiscalID(nota[0])
+
+            if nota[0] == self.elemento:
                 QTreeWidgetItem(self.campo, index)
-
             else:
-                self.tree = QTreeWidgetItem(self.notas, index)
+                tree = QTreeWidgetItem(self.notas, index)
+                for col_index, item in enumerate(nota):
+                    tree.setText(col_index, item)
+                tree.setCheckState(0, Qt.CheckState.Unchecked)
 
-                for index, item in enumerate(i):
-                    self.tree.setText(index, item)
+            if not self.lineedit_notas.text():
+                check_result = self.conn.execute(
+                    "SELECT NomeProduto "
+                    "FROM Itens "
+                    "WHERE NotaFiscalID IN {}"
+                    "GROUP BY NomeProduto HAVING COUNT(NomeProduto) > 1 "
+                    "AND SUM(CASE WHEN ValorImposto > 0 THEN 1 ELSE 0 END) > 0 "
+                    "AND NomeProduto IN (SELECT NomeProduto "
+                    "FROM Itens WHERE NotaFiscalID = ? "
+                    "AND ValorImposto = 0)".format(tuple(self.notas_empr_pro)),
+                    (str(nf_id),)).fetchall()
 
-                self.tree.setCheckState(0, Qt.CheckState.Unchecked)
+                if check_result:
+                    notas_calculadas[nota[0]] = check_result[0]
 
-            nf_id = bd.seek_NotaFiscalID(i[0])
-            
-            #Checka se há itens da nota que foram calculados anteriormente
-            self.check = self.conn.execute(
-                "SELECT NomeProduto "
-                "FROM Itens "
-                "WHERE NotaFiscalID IN {}"
-                "GROUP BY NomeProduto HAVING COUNT(NomeProduto) > 1 "
-                "AND SUM(CASE WHEN ValorImposto > 0 THEN 1 ELSE 0 END) > 0 "
-                "AND NomeProduto IN (SELECT NomeProduto "
-                "FROM Itens WHERE NotaFiscalID = ? "
-                "AND ValorImposto = 0)".format(tuple(self.notas_empr_pro)),
-                (str(nf_id),)).fetchall()
+        self.list_notas_cal = list(notas_calculadas.keys())
+        self.list_itens_cal = list(notas_calculadas.values())
 
-            if self.check != []:
-                self.list_notas_cal.append(i[0])
-                self.list_itens_cal.append(self.check[0])
-
-        if self.list_notas_cal != []:
-            return self.show_dialog()
+        if notas_calculadas:
+            self.show_dialog()
 
     def notas_abertas(self):
         for item in range(self.notas.topLevelItemCount()):
@@ -191,11 +192,10 @@ class Ui(QMainWindow):
 
                 self.tree.setCheckState(0, Qt.CheckState.Unchecked)
 
-                if self.list_itens_cal != []:
-                    for index, item in enumerate(valor):
-                        if index == 0 and item in self.list_itens_cal[0]:
-                            self.tree.setCheckState(
-                                0, Qt.CheckState.PartiallyChecked)
+                for index, item in enumerate(valor):
+                    if index == 0 and item in self.list_itens_cal:
+                        self.tree.setCheckState(
+                            0, Qt.CheckState.PartiallyChecked)
 
         self.itens.expandAll()
         self.somar_imposto()
@@ -210,11 +210,11 @@ class Ui(QMainWindow):
 
                 if check == 2:
                     self.cnpj_dest = self.cnpj
-                    self.notas_empr_npro = bd.notas_empresa(self.cnpj_dest, self.nome)
-                    self.notas_empr_pro = [i[0] for i in self.notas_empr_npro]
+                    self.nome_dest = self.nome
+                    self.notas_empr_pro = [i[0] for i in bd.notas_empresa(self.cnpj_dest, self.nome)]
                     self.stackedWidget.setCurrentWidget(self.table_notas)
                     self.search_nota()
-
+                
         except OSError:
             pass
 
@@ -331,7 +331,7 @@ class Ui(QMainWindow):
             try:
                 tree = self.itens.topLevelItem(item)
                 self.NomeProduto = tree.text(0)
-                self.conn = self.connec.cursor()
+
                 self.conn.execute(
                     "SELECT ValorImposto "
                     "FROM Itens WHERE NomeProduto = ? AND NotaFiscalID = ?",
