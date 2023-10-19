@@ -9,8 +9,9 @@ from funcoes import calculo_diferencial_icms, date_start, date_last
 from emitir_dua import Dua
 import bd
 from datetime import datetime
-from cachetools import TTLCache, cached
+from cachetools import TTLCache
 import hashlib
+from time import time 
 
 
 class Ui(QMainWindow):   
@@ -126,18 +127,22 @@ class Ui(QMainWindow):
         self.notas.clear()
         notas_calculadas = {}
 
+        def create_tree_item(index, nota):
+            tree_item = QTreeWidgetItem(self.notas if nota[0] != self.elemento else self.campo, index)
+            for col_index, item in enumerate(nota):
+                tree_item.setText(col_index, item)
+            tree_item.setCheckState(0, Qt.CheckState.Unchecked)
+            return tree_item
+
+        # Crie uma lista de QTreeWidgetItems
+        tree_items = [create_tree_item(index, nota) for index, nota in enumerate(result_list)]
+        
+        # Lógica de manipulação de dados
         for index, nota in enumerate(result_list):
             nf_id = bd.seek_NotaFiscalID(nota[0])
 
-            if nota[0] == self.elemento:
-                QTreeWidgetItem(self.campo, index)
-            else:
-                tree = QTreeWidgetItem(self.notas, index)
-                for col_index, item in enumerate(nota):
-                    tree.setText(col_index, item)
-                tree.setCheckState(0, Qt.CheckState.Unchecked)
-
-            if not self.lineedit_notas.text():
+            
+            if not self.lineedit_notas.hasFocus():
                 check_result = self.conn.execute(
                     "SELECT NomeProduto "
                     "FROM Itens "
@@ -150,8 +155,9 @@ class Ui(QMainWindow):
                     (str(nf_id),)).fetchall()
 
                 if check_result:
-                    notas_calculadas[nota[0]] = check_result[0]
-
+                    notas_calculadas[nota[0]] = [item[0] for item in check_result]
+                    
+        # Atualize suas variáveis de lista com as informações calculadas
         self.list_notas_cal = list(notas_calculadas.keys())
         self.list_itens_cal = list(notas_calculadas.values())
 
@@ -176,28 +182,24 @@ class Ui(QMainWindow):
         self.notas.expandAll()
 
     def table_center(self, NotaFiscalID):
-        self.tree = QTreeWidgetItem(self.itens)
         self.itens.clear()
-
         result_list = bd.seek_id_nf_item(NotaFiscalID)
 
-        for index, valor in enumerate(result_list):
+        def create_tree_item(valor):
+            tree_item = QTreeWidgetItem(self.itens)
+            for col, item in enumerate(valor):
+                tree_item.setText(col, str(item))
+
             if valor[0] == self.elemento:
-                QTreeWidgetItem(self.campo, index)
-
+                tree_item.parent().removeChild(tree_item)
+                self.campo.addChild(tree_item)
+            elif valor[0] in self.list_itens_cal[0]:
+                tree_item.setCheckState(0, Qt.CheckState.PartiallyChecked)
             else:
-                self.tree = QTreeWidgetItem(self.itens, index)
-                for index, item in enumerate(valor):
-                    self.tree.setText(index, str(item))
+                tree_item.setCheckState(0, Qt.CheckState.Unchecked)
 
-                self.tree.setCheckState(0, Qt.CheckState.Unchecked)
+        list(map(create_tree_item, result_list))
 
-                for index, item in enumerate(valor):
-                    if index == 0 and item in self.list_itens_cal:
-                        self.tree.setCheckState(
-                            0, Qt.CheckState.PartiallyChecked)
-
-        self.itens.expandAll()
         self.somar_imposto()
 
     def busca_empresa(self):
