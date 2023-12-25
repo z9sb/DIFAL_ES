@@ -11,8 +11,6 @@ import bd
 from datetime import datetime
 from cachetools import TTLCache
 import hashlib
-from time import time 
-
 
 class Ui(QMainWindow):   
     def __init__(self):
@@ -52,6 +50,7 @@ class Ui(QMainWindow):
         return QDate(ano, mes, dia)
 
     def table_home(self):
+        self.empresas.clear()
         self.tree = QTreeWidgetItem(self.empresas)
 
         self.connec = sqlite3.connect('dados.db')
@@ -82,9 +81,9 @@ class Ui(QMainWindow):
     def btn_table_notas(self):
         return self.stackedWidget.setCurrentWidget(self.table_notas)
     
-    def gerar_hash_parametros(self, pesquisa, data_inicial, data_final):
+    def gerar_hash_parametros(self, empresa, pesquisa, data_inicial, data_final):
         # Gere um hash dos parâmetros para ser usado como chave de cache
-        hash_input = f"{pesquisa}-{data_inicial}-{data_final}"
+        hash_input = f"{empresa}-{pesquisa}-{data_inicial}-{data_final}"
         return hashlib.md5(hash_input.encode()).hexdigest()    
 
     def search_nota(self):
@@ -94,7 +93,7 @@ class Ui(QMainWindow):
         data_inicial = f'{dt_in_nf.year()}-{dt_in_nf.month():02}-{dt_in_nf.day():02}'
         data_final = f'{dt_fn_nf.year()}-{dt_fn_nf.month():02}-{dt_fn_nf.day():02}'
         parametros_busca = [bd.cadastrar_empresas(self.cnpj_dest, self.nome_dest)]
-        chave_cache = self.gerar_hash_parametros(pesquisa, data_inicial, data_final)
+        chave_cache = self.gerar_hash_parametros(self.cnpj_dest, pesquisa, data_inicial, data_final)
 
         # Verificar se o resultado já está em cache
         if chave_cache in self.cache:
@@ -189,12 +188,15 @@ class Ui(QMainWindow):
             tree_item = QTreeWidgetItem(self.itens)
             for col, item in enumerate(valor):
                 tree_item.setText(col, str(item))
-
+                
             if valor[0] == self.elemento:
                 tree_item.parent().removeChild(tree_item)
                 self.campo.addChild(tree_item)
-            elif valor[0] in self.list_itens_cal[0]:
-                tree_item.setCheckState(0, Qt.CheckState.PartiallyChecked)
+            elif self.list_itens_cal != []:
+                if valor[0] in self.list_itens_cal[0]:
+                    tree_item.setCheckState(0, Qt.CheckState.PartiallyChecked)
+                else:
+                    tree_item.setCheckState(0, Qt.CheckState.Unchecked)
             else:
                 tree_item.setCheckState(0, Qt.CheckState.Unchecked)
 
@@ -221,7 +223,6 @@ class Ui(QMainWindow):
             pass
 
     def busca_notas(self):
-
         try:
             for item in range(self.notas.topLevelItemCount()):
                 tree = self.notas.topLevelItem(item)
@@ -236,7 +237,6 @@ class Ui(QMainWindow):
                         bd.seek_NotaFiscalID(
                             self.chave_nota
                         ))
-
         except OSError:
             pass
 
