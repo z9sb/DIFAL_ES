@@ -142,16 +142,17 @@ class Ui(QMainWindow):
 
             
             if not self.lineedit_notas.hasFocus():
-                check_result = self.conn.execute(
-                    "SELECT NomeProduto "
-                    "FROM Itens "
-                    "WHERE NotaFiscalID IN {}"
-                    "GROUP BY NomeProduto HAVING COUNT(NomeProduto) > 1 "
-                    "AND SUM(CASE WHEN ValorImposto > 0 THEN 1 ELSE 0 END) > 0 "
-                    "AND NomeProduto IN (SELECT NomeProduto "
-                    "FROM Itens WHERE NotaFiscalID = ? "
-                    "AND ValorImposto = 0)".format(tuple(self.notas_empr_pro)),
-                    (str(nf_id),)).fetchall()
+                check_result = self.conn.execute( 
+                    "SELECT NomeProduto " 
+                    "FROM Itens " 
+                    "WHERE NotaFiscalID IN ({}) " 
+                    "GROUP BY NomeProduto HAVING COUNT(NomeProduto) > 1 " 
+                    "AND SUM(CASE WHEN ValorImposto > 0 THEN 1 ELSE 0 END) > 0 " 
+                    "AND NomeProduto IN (SELECT NomeProduto " 
+                    "FROM Itens WHERE NotaFiscalID = ? " 
+                    "AND ValorImposto = 0 )".format(', '.join(['?'] * len(self.notas_empr_pro))), 
+                    (tuple(self.notas_empr_pro) + (nf_id,)) 
+                ).fetchall()
 
                 if check_result:
                     notas_calculadas[nota[0]] = [item[0] for item in check_result]
