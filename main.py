@@ -14,14 +14,13 @@ if not path.exists('dir.txt'):
 else:
     with open('dir.txt') as item:
         root_dir = Path(item.read())
-    
+        
+lista_cnpj:list = []
 file_xml = []
 for pasta_atual, subpastas, arquivos in walk(root_dir):
     for arquivo in arquivos: 
         if arquivo.endswith('.xml'): 
             file_xml.append(path.join(pasta_atual, arquivo))
-
-list_cnpj: list = ['39389523000107', '30546485000184', '04118332000126']
 
 def main(file_xml):
     print(file_xml)
@@ -32,7 +31,7 @@ def main(file_xml):
             estado_cli = xml.estado_cli()
             estado_for = xml.estado_for()
             
-            if estado_cli == estado_for or not cnpj_des in list_cnpj:
+            if estado_cli == estado_for or not int(cnpj_des) in lista_cnpj:
                 pass
 
             else:

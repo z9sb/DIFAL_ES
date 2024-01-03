@@ -109,7 +109,7 @@ class NFe(xmlns):
         return self.xml_find_all_subitem_int('prod','CEST')
     
     def v_ipi(self) -> int:
-        return self.xml_find_all_subitem_int('IPI', 'vIPI')
+        return self.xml_find_all_subitem_int('prod', 'vIPI')
     
     def v_prod(self) -> float:
         return self.xml_find_all('vProd')
