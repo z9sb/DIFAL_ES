@@ -3,7 +3,7 @@ from sys import argv
 
 from PyQt6 import uic
 from PyQt6.QtCore import Qt, QDate
-from PyQt6.QtWidgets import QApplication, QMainWindow, QTreeWidgetItem, QMessageBox
+from PyQt6.QtWidgets import QApplication, QMainWindow, QTreeWidgetItem, QMessageBox, QInputDialog
 
 from funcoes import calculo_diferencial_icms, date_start, date_last
 from emitir_dua import Dua
@@ -38,6 +38,7 @@ class Ui(QMainWindow):
         self.dateEdit_final.setDate(self.set_date(date_last()))
         self.dateEdit_inicial.dateChanged.connect(self.search_nota)
         self.dateEdit_final.dateChanged.connect(self.search_nota)
+        self.btn_itens_ali.clicked.connect(self.show_dialog_ali)
 
         self.itens.setHeaderLabels(
             ['PRODUTO', 'NCM', 'CEST', 'CFOP', 'UNIDADE', 'QUANTIDADE',
@@ -69,7 +70,7 @@ class Ui(QMainWindow):
                 self.tree.setText(0, value[1])
                 self.tree.setText(1, value[0])
                 self.tree.setCheckState(0, Qt.CheckState.Unchecked)
-
+        self.empresas.resizeColumnToContents(0)
         self.empresas.expandAll()
 
     def btn_table_empresas(self):
@@ -125,21 +126,24 @@ class Ui(QMainWindow):
     def set_notas(self, result_list):
         self.notas.clear()
         notas_calculadas = {}
-
+        
         def create_tree_item(index, nota):
             tree_item = QTreeWidgetItem(self.notas if nota[0] != self.elemento else self.campo, index)
             for col_index, item in enumerate(nota):
                 tree_item.setText(col_index, item)
+                self.notas.resizeColumnToContents(col_index)
+                self.notas.setColumnWidth(0, self.notas.columnWidth(0) + 3)
             tree_item.setCheckState(0, Qt.CheckState.Unchecked)
             return tree_item
 
-        # Crie uma lista de QTreeWidgetItems
-        tree_items = [create_tree_item(index, nota) for index, nota in enumerate(result_list)]
+        #Add itens ao QTreeWidget
+        for index, nota in enumerate(result_list):
+            nota_show = nota[0], nota[0][25:34], nota[0][22:25], nota[1], nota[2]
+            create_tree_item(index, nota_show)
         
         # Lógica de manipulação de dados
         for index, nota in enumerate(result_list):
             nf_id = bd.seek_NotaFiscalID(nota[0])
-
             
             if not self.lineedit_notas.hasFocus():
                 check_result = self.conn.execute( 
@@ -200,7 +204,7 @@ class Ui(QMainWindow):
                     tree_item.setCheckState(0, Qt.CheckState.Unchecked)
             else:
                 tree_item.setCheckState(0, Qt.CheckState.Unchecked)
-
+            self.itens.setColumnWidth(0, 300)
         list(map(create_tree_item, result_list))
 
         self.somar_imposto()
@@ -241,7 +245,7 @@ class Ui(QMainWindow):
         except OSError:
             pass
 
-    def calculo_imposto(self):
+    def calculo_imposto(self, aliquota = 17.0, Ativo_imo = False):
         for item in range(self.itens.topLevelItemCount()):
             if item is not None:
                 tree = self.itens.topLevelItem(item)
@@ -267,7 +271,7 @@ class Ui(QMainWindow):
                     if item_id:
                         valor = calculo_diferencial_icms(
                             valor_total, aliquota_icms, valor_icms, valor_ipi,
-                            valor_frete, valor_outras, valor_desconto)
+                            valor_frete, valor_outras, valor_desconto, aliquota, Ativo_imo)
 
                         sql = "UPDATE itens SET ValorImposto = ? WHERE id = ?"
 
@@ -308,7 +312,10 @@ class Ui(QMainWindow):
         for item in range(self.itens.topLevelItemCount()):
             if item is not None:
                 tree = self.itens.topLevelItem(item)
-                tree.setCheckState(0, Qt.CheckState.Checked)
+                if int(tree.text(3)) in [6401, 6403, 6405]:
+                    tree.setCheckState(0, Qt.CheckState.PartiallyChecked)
+                else:
+                    tree.setCheckState(0, Qt.CheckState.Checked)
 
     def mark_off_all(self):
         for item in range(self.itens.topLevelItemCount()):
@@ -366,6 +373,44 @@ class Ui(QMainWindow):
         if result == QMessageBox.StandardButton.Yes:
             return self.notas_abertas()
 
+    def show_dialog_ali(self):
+        self.msg_box = QMessageBox()
+        self.msg_box.setWindowTitle(
+            'Notificação'
+        )
+        self.msg_box.setText(
+            'O(s) item(ns) e para o ativo imobilizado?'
+        )
+        self.msg_box.setStandardButtons(
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+
+        result = self.msg_box.exec()
+        
+        # Pedir à pessoa para digitar um valor
+        valor, ok = QInputDialog.getText(None, 'Digite um valor', 'Por favor, digite um valor:')
+
+        # Verificar se o usuário pressionou OK e o valor é válido
+        if ok and valor:
+            
+            try:
+                valor = valor.replace(',','.')
+                float(valor)
+                if result == QMessageBox.StandardButton.Yes:
+                    return self.calculo_imposto(float(valor), True)
+                elif result == QMessageBox.StandardButton.No:
+                    return self.calculo_imposto(float(valor))
+            except ValueError:
+                self.msg_box = QMessageBox()
+                self.msg_box.setWindowTitle(
+                    'Notificação'
+                )
+                self.msg_box.setText(
+                    "Valor inserido inválido"
+                )
+                self.msg_box.exec()
+        else:
+            print("Operação cancelada ou nenhum valor inserido.")
+            
     def next_notas(self):
         try:
             return next(self.notas_abertas())
